@@ -13,8 +13,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "encrypt:gateway": "node scripts/encrypt-gateway-secret.mjs",
-    "seed:demo": "node scripts/seed-demo-checkout.mjs",
-    "db:test": "node scripts/test-db-connection.mjs"
+    "seed:demo": "node --env-file=.env scripts/seed-demo-checkout.mjs",
+    "db:test": "node --env-file=.env scripts/test-db-connection.mjs"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.2",

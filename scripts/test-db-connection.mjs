@@ -1,8 +1,6 @@
 /**
- * Testa a mesma DATABASE_URL que você usa na Vercel.
- *
- * Uso (cole a URI inteira entre aspas simples):
- *   DATABASE_URL='postgresql://...' npm run db:test
+ * Testa DATABASE_URL do .env (Node 20+): npm run db:test
+ * Ou: DATABASE_URL='postgresql://...' npm run db:test
  */
 import postgres from "postgres";
 

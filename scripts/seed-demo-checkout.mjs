@@ -1,6 +1,7 @@
 /**
  * Seed mínimo para testar a UI de checkout localmente.
- * Uso: DATABASE_URL=... node scripts/seed-demo-checkout.mjs
+ * DATABASE_URL vem do .env via npm (Node 20+): npm run seed:demo
+ * Ou: DATABASE_URL='postgresql://...' npm run seed:demo
  */
 import postgres from "postgres";
 
