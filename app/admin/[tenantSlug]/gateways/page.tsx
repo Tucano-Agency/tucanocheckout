@@ -1,17 +1,15 @@
 import { eq } from "drizzle-orm";
+import { getTenantBySlugCached } from "@/application/admin/get-tenant-by-slug-cached";
 import { GatewayForm } from "@/presentation/admin/GatewayForm";
+import { AdminPageHeader } from "@/presentation/admin/AdminPageHeader";
 import { db } from "@/infrastructure/db/client";
-import { tenantGateways, tenants } from "@/infrastructure/db/schema";
+import { tenantGateways } from "@/infrastructure/db/schema";
 
 type Props = { params: Promise<{ tenantSlug: string }> };
 
 export default async function AdminGatewaysPage({ params }: Props) {
   const { tenantSlug } = await params;
-  const [tenant] = await db
-    .select()
-    .from(tenants)
-    .where(eq(tenants.slug, tenantSlug))
-    .limit(1);
+  const tenant = await getTenantBySlugCached(tenantSlug);
 
   const rows = tenant
     ? await db
@@ -21,17 +19,19 @@ export default async function AdminGatewaysPage({ params }: Props) {
     : [];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Gateways BYOG</h1>
-        <p className="mt-1 text-zinc-600">
-          Chaves do tenant — criptografadas com AES-256-GCM. A plataforma nunca
-          recebe % das vendas.
-        </p>
-      </div>
+    <div className="space-y-10">
+      <AdminPageHeader
+        title="Gateways BYOG"
+        description={
+          <>
+            Chaves do tenant criptografadas (AES-256-GCM). Você usa seu próprio
+            Asaas ou Pagar.me — a plataforma não fica com percentual das vendas.
+          </>
+        }
+      />
 
       {rows.length > 0 ? (
-        <ul className="rounded-xl border border-zinc-200 bg-white divide-y divide-zinc-100">
+        <ul className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-sm ring-1 ring-zinc-100">
           {rows.map((g) => (
             <li key={g.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <span className="font-medium capitalize">{g.provider}</span>

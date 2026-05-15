@@ -1,19 +1,17 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
+import { getTenantBySlugCached } from "@/application/admin/get-tenant-by-slug-cached";
 import { formatMoney } from "@/lib/format-money";
 import { OfferForm } from "@/presentation/admin/OfferForm";
+import { AdminPageHeader } from "@/presentation/admin/AdminPageHeader";
 import { db } from "@/infrastructure/db/client";
-import { offers, products, tenants } from "@/infrastructure/db/schema";
+import { offers, products } from "@/infrastructure/db/schema";
 
 type Props = { params: Promise<{ tenantSlug: string }> };
 
 export default async function AdminOffersPage({ params }: Props) {
   const { tenantSlug } = await params;
-  const [tenant] = await db
-    .select()
-    .from(tenants)
-    .where(eq(tenants.slug, tenantSlug))
-    .limit(1);
+  const tenant = await getTenantBySlugCached(tenantSlug);
 
   const rows = tenant
     ? await db
@@ -25,20 +23,25 @@ export default async function AdminOffersPage({ params }: Props) {
 
   return (
     <div className="space-y-10">
-      <section>
-        <h1 className="text-2xl font-bold text-zinc-900">Ofertas</h1>
-        <p className="mt-1 text-zinc-600">
-          Cada oferta gera um link{" "}
-          <code className="text-sm">/checkout/{tenantSlug}/[slug]</code>
-        </p>
-      </section>
+      <AdminPageHeader
+        title="Ofertas"
+        description={
+          <>
+            Cada oferta publica um link{" "}
+            <code className="rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-[13px] text-zinc-800">
+              /checkout/{tenantSlug}/[slug]
+            </code>
+            .
+          </>
+        }
+      />
 
       {rows.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {rows.map(({ offer, product }) => (
             <li
               key={offer.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200/90 bg-white px-5 py-4 shadow-sm ring-1 ring-zinc-100"
             >
               <div>
                 <p className="font-medium text-zinc-900">{product.name}</p>
