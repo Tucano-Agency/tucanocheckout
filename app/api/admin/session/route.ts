@@ -6,6 +6,8 @@ import {
 import { eq } from "drizzle-orm";
 import { db } from "@/infrastructure/db/client";
 import { tenants } from "@/infrastructure/db/schema";
+import { withDbRetry } from "@/lib/db-retry";
+import { describePostgresFailure } from "@/lib/postgres-connection-hint";
 
 export const runtime = "nodejs";
 
@@ -61,19 +63,24 @@ export async function POST(req: Request) {
         }
       | undefined;
     try {
-      const rows = await db
-        .select({ slug: tenants.slug })
-        .from(tenants)
-        .where(eq(tenants.slug, tenantSlug))
-        .limit(1);
+      const rows = await withDbRetry(() =>
+        db
+          .select({ slug: tenants.slug })
+          .from(tenants)
+          .where(eq(tenants.slug, tenantSlug))
+          .limit(1),
+      );
       tenantRow = rows[0];
     } catch (dbErr) {
       console.error("[admin/session] erro ao consultar tenant:", dbErr);
+      const { postgresCode, hint } = describePostgresFailure(dbErr);
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Erro ao conectar ao banco. Confira DATABASE_URL na Vercel (Production), senha codificada na URI e redeploy.",
+            "Erro ao conectar ao banco. O slug Production está certo — falha é rede/autenticação ou projeto pausado. Veja `postgresCode` e `hint` abaixo.",
+          postgresCode,
+          hint,
         },
         { status: 503 },
       );

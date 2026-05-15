@@ -23,7 +23,12 @@ function LoginForm() {
       body: JSON.stringify({ tenantSlug, secret }),
     });
     const raw = await res.text();
-    let data: { ok?: boolean; message?: string } = {};
+    let data: {
+      ok?: boolean;
+      message?: string;
+      postgresCode?: string | null;
+      hint?: string;
+    } = {};
     if (raw.trim()) {
       try {
         data = JSON.parse(raw) as { ok?: boolean; message?: string };
@@ -43,7 +48,11 @@ function LoginForm() {
     }
     setLoading(false);
     if (!res.ok || !data.ok) {
-      setError(data.message ?? "Falha ao entrar.");
+      const parts = [data.message ?? "Falha ao entrar."];
+      if (data.postgresCode)
+        parts.push(`Postgres: ${data.postgresCode}`);
+      if (data.hint) parts.push(data.hint);
+      setError(parts.join("\n\n"));
       return;
     }
     router.push(`/admin/${tenantSlug}`);
