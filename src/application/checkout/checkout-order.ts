@@ -325,6 +325,9 @@ export async function persistPaymentOutcome(
     chargeId: finalTx?.gatewayChargeId ?? input.chargeId ?? undefined,
     gatewayProvider: finalTx?.gatewayProvider ?? input.gatewayProvider,
     replay: false,
+    ...(input.orderStatus === "failed" && input.failureReason
+      ? { failureMessage: input.failureReason }
+      : {}),
   };
 }
 

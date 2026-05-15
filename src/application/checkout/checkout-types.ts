@@ -12,6 +12,8 @@ export type CheckoutPaymentSuccess = {
   readonly chargeId?: string;
   readonly gatewayProvider: "pagarme" | "asaas";
   readonly replay: boolean;
+  /** Preenchido quando `status` é `failed` (motivo vindo do gateway). */
+  readonly failureMessage?: string;
 };
 
 export function checkoutFail(

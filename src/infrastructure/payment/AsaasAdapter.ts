@@ -23,6 +23,9 @@ import {
   ensureAsaasCustomer,
   onlyDigits,
 } from "./asaas-customer";
+import { asaasErrorMessage, readAsaasResponse } from "./asaas-http";
+import { fetchAsaasPaymentPixQrCode } from "./asaas-pix-qr";
+import { fetchAsaasSubscriptionFirstPaymentId } from "./asaas-subscription-payments";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -112,8 +115,11 @@ export class AsaasAdapter implements IPaymentGateway {
       body: JSON.stringify(paymentPayload),
       cache: "no-store",
     });
-    const payJson = (await pr.json()) as unknown;
-
+    const payParsed = await readAsaasResponse(pr);
+    if (!payParsed.ok) {
+      return { status: "failed", failureMessage: payParsed.message };
+    }
+    const payJson = payParsed.json;
     if (!isRecord(payJson)) {
       return {
         status: "failed",
@@ -123,10 +129,7 @@ export class AsaasAdapter implements IPaymentGateway {
     if (!pr.ok) {
       return {
         status: "failed",
-        failureMessage:
-          payJson.errors !== undefined
-            ? JSON.stringify(payJson.errors)
-            : `HTTP ${pr.status}`,
+        failureMessage: asaasErrorMessage(payJson, `HTTP ${pr.status}`),
         raw: payJson,
       };
     }
@@ -203,61 +206,45 @@ export class AsaasAdapter implements IPaymentGateway {
       }),
       cache: "no-store",
     });
-    const payJson = (await pr.json()) as unknown;
-
+    const payParsed = await readAsaasResponse(pr);
+    if (!payParsed.ok) {
+      return { status: "failed", failureMessage: payParsed.message };
+    }
+    const payJson = payParsed.json;
     if (!isRecord(payJson) || !pr.ok) {
       return {
         status: "failed",
-        failureMessage: isRecord(payJson)
-          ? JSON.stringify(payJson.errors ?? payJson)
-          : `HTTP ${pr.status}`,
+        failureMessage: asaasErrorMessage(payJson, `HTTP ${pr.status}`),
         raw: isRecord(payJson) ? payJson : undefined,
       };
     }
 
     const chargeId = String(payJson.id ?? "");
-    const qrRes = await fetch(`${base}/payments/${chargeId}/pixQrCode`, {
-      headers: asaasHeaders(this.credentials),
-      cache: "no-store",
-    });
-    const qrJson = (await qrRes.json()) as unknown;
-
-    if (!qrRes.ok || !isRecord(qrJson)) {
+    if (!chargeId) {
       return {
         status: "failed",
-        failureMessage: "Asaas: falha ao obter QR Code PIX.",
-        chargeId,
+        failureMessage: "Asaas: cobrança PIX sem ID.",
         raw: payJson,
       };
     }
 
-    const payload =
-      typeof qrJson.payload === "string" ? qrJson.payload : "";
-    if (!payload) {
+    const qr = await fetchAsaasPaymentPixQrCode(this.credentials, chargeId);
+    if (!qr.ok) {
       return {
         status: "failed",
-        failureMessage: "Asaas: payload PIX vazio.",
+        failureMessage: qr.message,
         chargeId,
         raw: payJson,
       };
     }
-
-    const expiresIn = input.expiresInSeconds ?? 3600;
-    const expirationDate =
-      typeof qrJson.expirationDate === "string"
-        ? new Date(qrJson.expirationDate)
-        : new Date(Date.now() + expiresIn * 1000);
 
     return {
       status: "pending",
       chargeId,
       pix: {
-        copyPaste: payload,
-        qrCodeBase64:
-          typeof qrJson.encodedImage === "string"
-            ? qrJson.encodedImage
-            : undefined,
-        expiresAt: expirationDate,
+        copyPaste: qr.data.payload,
+        qrCodeBase64: qr.data.encodedImage,
+        expiresAt: qr.data.expirationDate,
       },
       raw: payJson,
     };
@@ -332,29 +319,49 @@ export class AsaasAdapter implements IPaymentGateway {
       body: JSON.stringify(payload),
       cache: "no-store",
     });
-    const data = (await res.json()) as unknown;
+    const parsed = await readAsaasResponse(res);
+    if (!parsed.ok) {
+      return { status: "failed", failureMessage: parsed.message };
+    }
+    const data = parsed.json;
 
     if (!isRecord(data) || !res.ok) {
       return {
         status: "failed",
-        failureMessage: isRecord(data)
-          ? JSON.stringify(data.errors ?? data)
-          : `HTTP ${res.status}`,
+        failureMessage: asaasErrorMessage(data, `HTTP ${res.status}`),
         raw: isRecord(data) ? data : undefined,
       };
     }
 
     const subId = String(data.id ?? "");
     const st = String(data.status ?? "");
+    const firstPaymentId = subId
+      ? await fetchAsaasSubscriptionFirstPaymentId(this.credentials, subId)
+      : undefined;
 
     if (trialDays > 0 && subId) {
-      return { status: "trialing", subscriptionId: subId, raw: data };
+      return {
+        status: "trialing",
+        subscriptionId: subId,
+        firstPaymentId,
+        raw: data,
+      };
     }
     if (st === "ACTIVE" || st === "CONFIRMED") {
-      return { status: "active", subscriptionId: subId, raw: data };
+      return {
+        status: "active",
+        subscriptionId: subId,
+        firstPaymentId,
+        raw: data,
+      };
     }
     if (subId) {
-      return { status: "incomplete", subscriptionId: subId, raw: data };
+      return {
+        status: "incomplete",
+        subscriptionId: subId,
+        firstPaymentId,
+        raw: data,
+      };
     }
     return {
       status: "failed",

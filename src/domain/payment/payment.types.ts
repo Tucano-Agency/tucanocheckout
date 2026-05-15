@@ -147,6 +147,8 @@ export interface PixChargeResult {
 export interface SubscriptionResult {
   readonly status: "active" | "trialing" | "incomplete" | "failed";
   readonly subscriptionId?: string;
+  /** ID da primeira cobrança no gateway (quando disponível). */
+  readonly firstPaymentId?: string;
   readonly failureMessage?: string;
   readonly raw?: Readonly<Record<string, unknown>>;
 }

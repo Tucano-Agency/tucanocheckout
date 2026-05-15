@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidCpfCnpj } from "@/lib/validate-cpf-cnpj";
 
 export const checkoutCustomerSchema = z.object({
   email: z.string().email().max(255),
@@ -6,7 +7,10 @@ export const checkoutCustomerSchema = z.object({
   phone: z.string().max(64).optional(),
   document: z
     .string()
-    .regex(/^[\d]{11,14}$/, "CPF/CNPJ apenas dígitos (11 a 14)"),
+    .regex(/^[\d]{11,14}$/, "CPF/CNPJ apenas dígitos (11 a 14)")
+    .refine((v) => isValidCpfCnpj(v), {
+      message: "CPF ou CNPJ inválido (confira os dígitos verificadores).",
+    }),
 });
 
 export const checkoutCardSchema = z.object({

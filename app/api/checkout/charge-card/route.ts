@@ -51,7 +51,15 @@ export async function POST(req: Request) {
         { status: 503 },
       );
     }
-    throw e;
+    console.error("[charge-card]", e);
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "internal_error",
+        message: "Erro interno ao processar pagamento. Tente novamente.",
+      },
+      { status: 500 },
+    );
   }
 
   if (!result.ok) {
@@ -61,12 +69,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const statusHttp =
-    result.status === "paid"
-      ? 200
-      : result.status === "pending_payment"
-        ? 202
-        : 402;
+  if (result.status === "failed") {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "payment_failed",
+        message:
+          result.failureMessage ??
+          "Pagamento recusado pelo gateway. Verifique os dados e tente de novo.",
+        orderId: result.orderId,
+        status: result.status,
+        gatewayProvider: result.gatewayProvider,
+      },
+      { status: 402 },
+    );
+  }
+
+  const statusHttp = result.status === "paid" ? 200 : 202;
 
   return NextResponse.json(
     {

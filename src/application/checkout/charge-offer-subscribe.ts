@@ -237,12 +237,14 @@ export async function subscribeOffer(
       amountMinor: offer.amountMinor,
       currency: offer.currency,
       gatewayProvider,
-      gatewayChargeId: gwResult.subscriptionId,
+      gatewayChargeId: gwResult.firstPaymentId ?? null,
       idempotencyKey: txKey,
-      gatewayMetadata:
-        gwResult.raw && typeof gwResult.raw === "object"
+      gatewayMetadata: {
+        gatewaySubscriptionId: gwResult.subscriptionId,
+        ...(gwResult.raw && typeof gwResult.raw === "object"
           ? (gwResult.raw as Record<string, unknown>)
-          : {},
+          : {}),
+      },
     });
   } catch (e) {
     if (!isPostgresUniqueViolation(e)) throw e;

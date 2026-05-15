@@ -11,6 +11,34 @@ import {
 } from "@/application/checkout/checkout-order";
 import { asIdempotencyKey } from "@/domain/payment/payment.types";
 import type { Database } from "@/infrastructure/db/client";
+import { fetchTenantAsaasPixQr } from "@/server/payment-bootstrap";
+
+async function withPixOnReplay(
+  tenantId: string,
+  result: CheckoutPaymentSuccess,
+): Promise<ChargeOfferPixResult> {
+  if (
+    result.status !== "pending_payment" ||
+    !result.chargeId ||
+    result.gatewayProvider !== "asaas"
+  ) {
+    return { ...result, pix: undefined };
+  }
+
+  const qr = await fetchTenantAsaasPixQr(tenantId, result.chargeId);
+  if (!qr.ok) {
+    return { ...result, pix: undefined };
+  }
+
+  return {
+    ...result,
+    pix: {
+      copyPaste: qr.data.payload,
+      qrCodeBase64: qr.data.encodedImage,
+      expiresAt: qr.data.expirationDate.toISOString(),
+    },
+  };
+}
 
 export type ChargeOfferPixResult =
   | (CheckoutPaymentSuccess & {
@@ -46,7 +74,7 @@ export async function chargeOfferPix(
 
   const existing = await findExistingTransaction(db, txIdempotencyKey);
   if (existing.kind === "replay") {
-    return { ...existing.result, pix: undefined };
+    return withPixOnReplay(tenant.id, existing.result);
   }
   if (existing.kind === "failed") return existing.failure;
 
@@ -56,7 +84,7 @@ export async function chargeOfferPix(
     remoteIp,
   });
   if (orderResult.kind === "replay") {
-    return { ...orderResult.result, pix: undefined };
+    return withPixOnReplay(tenant.id, orderResult.result);
   }
   if (orderResult.kind === "failed") return orderResult.failure;
 

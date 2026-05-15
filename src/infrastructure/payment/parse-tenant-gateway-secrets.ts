@@ -12,7 +12,7 @@ function reqStr(obj: Record<string, unknown>, key: string): string {
       `Credencial BYOG inválida: campo obrigatório "${key}" ausente ou vazio.`,
     );
   }
-  return v;
+  return v.trim();
 }
 
 export function parseTenantGatewaySecrets(

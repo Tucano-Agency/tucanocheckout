@@ -11,7 +11,7 @@ export interface PagarMeGatewayCredentials {
 export interface AsaasGatewayCredentials {
   readonly apiKey: string;
   readonly walletId?: string;
-  /** Ex.: `https://sandbox.asaas.com/v3` — padrão inferido pela chave se omitido. */
+  /** Ex.: `https://api-sandbox.asaas.com/v3` — padrão inferido pela chave se omitido. */
   readonly apiBaseUrl?: string;
 }
 

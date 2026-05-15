@@ -17,14 +17,19 @@ export default function Home() {
           /checkout/[tenant]/[oferta]
         </code>
         <p className="mt-6 text-xs text-zinc-500">
-          Ex.:{" "}
           <Link
             href="/checkout/demo/produto-lancamento"
             className="font-medium text-emerald-700 underline-offset-2 hover:underline"
           >
-            /checkout/demo/produto-lancamento
-          </Link>{" "}
-          (após seed no banco)
+            Checkout demo
+          </Link>
+          {" · "}
+          <Link
+            href="/admin/login?tenant=demo"
+            className="font-medium text-emerald-700 underline-offset-2 hover:underline"
+          >
+            Painel admin
+          </Link>
         </p>
       </div>
     </main>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PublicOfferView } from "@/application/checkout/get-public-offer";
 import { formatMoney } from "@/lib/format-money";
 
@@ -68,6 +68,8 @@ export function CheckoutForm({ offer }: CheckoutFormProps) {
   const [step, setStep] = useState<Step>("form");
   const [error, setError] = useState<string | null>(null);
   const [pixData, setPixData] = useState<PixPayload | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [pixPolling, setPixPolling] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const priceLabel = useMemo(
@@ -111,94 +113,137 @@ export function CheckoutForm({ offer }: CheckoutFormProps) {
     };
   }
 
+  async function parseCheckoutResponse(res: Response): Promise<{
+    ok?: boolean;
+    message?: string;
+    status?: string;
+    orderId?: string;
+    pix?: PixPayload;
+  }> {
+    const text = await res.text();
+    if (!text.trim()) {
+      return { ok: false, message: `Resposta vazia do servidor (HTTP ${res.status}).` };
+    }
+    try {
+      return JSON.parse(text) as {
+        ok?: boolean;
+        message?: string;
+        status?: string;
+        orderId?: string;
+        pix?: PixPayload;
+      };
+    } catch {
+      return {
+        ok: false,
+        message: `Erro no servidor (HTTP ${res.status}). Reinicie npm run dev e tente de novo.`,
+      };
+    }
+  }
+
   async function submitCard() {
     setStep("loading");
     setError(null);
-    const idempotencyKey = newIdempotencyKey();
-    const endpoint = isSubscription
-      ? "/api/checkout/subscribe"
-      : "/api/checkout/charge-card";
+    try {
+      const idempotencyKey = newIdempotencyKey();
+      const endpoint = isSubscription
+        ? "/api/checkout/subscribe"
+        : "/api/checkout/charge-card";
 
-    const body = {
-      offerId: offer.offerId,
-      idempotencyKey,
-      customer: customerPayload(),
-      card: cardPayload(),
-    };
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          offerId: offer.offerId,
+          idempotencyKey,
+          customer: customerPayload(),
+          card: cardPayload(),
+        }),
+      });
+      const data = await parseCheckoutResponse(res);
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = (await res.json()) as {
-      ok?: boolean;
-      message?: string;
-      status?: string;
-    };
+      if (!res.ok || !data.ok || data.status === "failed") {
+        setStep("form");
+        setError(data.message ?? "Não foi possível processar o pagamento.");
+        return;
+      }
 
-    if (!res.ok || !data.ok) {
-      setStep("error");
-      setError(data.message ?? "Não foi possível processar o pagamento.");
-      return;
-    }
-
-    if (isSubscription) {
-      setSuccessMessage(
-        data.status === "trialing"
-          ? "Assinatura iniciada. Seu período de teste está ativo."
-          : "Assinatura confirmada. Obrigado!",
+      if (isSubscription) {
+        setSuccessMessage(
+          data.status === "trialing"
+            ? "Assinatura iniciada. Seu período de teste está ativo."
+            : "Assinatura confirmada. Obrigado!",
+        );
+      } else if (data.status === "pending_payment") {
+        setSuccessMessage(
+          "Pagamento em análise. Você receberá a confirmação em instantes.",
+        );
+      } else {
+        setSuccessMessage("Pagamento aprovado. Obrigado pela compra!");
+      }
+      setStep("success");
+    } catch {
+      setStep("form");
+      setError(
+        "Falha de conexão com o servidor. Verifique se npm run dev está rodando.",
       );
-    } else if (data.status === "pending_payment") {
-      setSuccessMessage(
-        "Pagamento em análise. Você receberá a confirmação em instantes.",
-      );
-    } else {
-      setSuccessMessage("Pagamento aprovado. Obrigado pela compra!");
     }
-    setStep("success");
   }
 
   async function submitPix() {
     setStep("loading");
     setError(null);
-    const res = await fetch("/api/checkout/charge-pix", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        offerId: offer.offerId,
-        idempotencyKey: newIdempotencyKey(),
-        expiresInSeconds: 3600,
-        customer: customerPayload(),
-      }),
-    });
-    const data = (await res.json()) as {
-      ok?: boolean;
-      message?: string;
-      pix?: PixPayload;
-      status?: string;
-    };
+    try {
+      const res = await fetch("/api/checkout/charge-pix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          offerId: offer.offerId,
+          idempotencyKey: newIdempotencyKey(),
+          expiresInSeconds: 3600,
+          customer: customerPayload(),
+        }),
+      });
+      const data = await parseCheckoutResponse(res);
 
-    if (!res.ok || !data.ok) {
-      setStep("error");
-      setError(data.message ?? "Não foi possível gerar o PIX.");
-      return;
+      if (!res.ok || !data.ok) {
+        setStep("form");
+        setError(data.message ?? "Não foi possível gerar o PIX.");
+        return;
+      }
+
+      if (
+        data.status === "pending_payment" &&
+        typeof data.orderId === "string" &&
+        !data.pix
+      ) {
+        setStep("form");
+        setError(
+          "Este PIX já foi gerado. Recarregue a página e tente novamente com outro e-mail ou aguarde alguns segundos.",
+        );
+        return;
+      }
+
+      if (data.pix) {
+        setPixData(data.pix);
+        if (typeof data.orderId === "string") setOrderId(data.orderId);
+        setStep("pix");
+        return;
+      }
+
+      if (data.status === "paid") {
+        setSuccessMessage("Pagamento PIX confirmado!");
+        setStep("success");
+        return;
+      }
+
+      setStep("form");
+      setError("Resposta PIX incompleta. Tente novamente.");
+    } catch {
+      setStep("form");
+      setError(
+        "Falha de conexão com o servidor. Verifique se npm run dev está rodando.",
+      );
     }
-
-    if (data.pix) {
-      setPixData(data.pix);
-      setStep("pix");
-      return;
-    }
-
-    if (data.status === "paid") {
-      setSuccessMessage("Pagamento PIX confirmado!");
-      setStep("success");
-      return;
-    }
-
-    setStep("error");
-    setError("Resposta PIX incompleta. Tente novamente.");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -214,6 +259,44 @@ export function CheckoutForm({ offer }: CheckoutFormProps) {
     if (!pixData?.copyPaste) return;
     await navigator.clipboard.writeText(pixData.copyPaste);
   }
+
+  useEffect(() => {
+    if (step !== "pix" || !orderId) return;
+
+    let cancelled = false;
+    setPixPolling(true);
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/checkout/orders/${orderId}/status`);
+        const text = await res.text();
+        if (!text.trim() || cancelled) return;
+        let data: { ok?: boolean; status?: string };
+        try {
+          data = JSON.parse(text) as { ok?: boolean; status?: string };
+        } catch {
+          return;
+        }
+        if (cancelled) return;
+        if (data.ok && data.status === "paid") {
+          setSuccessMessage("Pagamento PIX confirmado!");
+          setStep("success");
+          setPixPolling(false);
+        }
+      } catch {
+        /* polling silencioso — falha de rede não derruba a tela do PIX */
+      }
+    };
+
+    void poll();
+    const id = window.setInterval(() => void poll(), 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      setPixPolling(false);
+    };
+  }, [step, orderId]);
 
   if (step === "success") {
     return (
@@ -259,7 +342,9 @@ export function CheckoutForm({ offer }: CheckoutFormProps) {
           </p>
         </div>
         <p className="text-center text-sm text-zinc-500">
-          A confirmação é automática após o pagamento.
+          {pixPolling
+            ? "Aguardando confirmação do PIX…"
+            : "A confirmação é automática após o pagamento."}
         </p>
       </div>
     );
