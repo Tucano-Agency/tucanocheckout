@@ -11,9 +11,16 @@ const looksLikePooler =
   connectionString.includes(":6543") ||
   connectionString.includes("pooler.supabase");
 
+const looksLikeSupabaseRemote =
+  connectionString.includes("supabase.co") ||
+  connectionString.includes("pooler.supabase");
+
 const client = postgres(connectionString, {
   max: Number(process.env.DATABASE_POOL_MAX ?? "1"),
+  connect_timeout: Number(process.env.DATABASE_CONNECT_TIMEOUT ?? "25"),
+  idle_timeout: Number(process.env.DATABASE_IDLE_TIMEOUT ?? "20"),
   ...(looksLikePooler ? { prepare: false } : {}),
+  ...(looksLikeSupabaseRemote ? { ssl: "require" as const } : {}),
 });
 
 export const db = drizzle(client, { schema });

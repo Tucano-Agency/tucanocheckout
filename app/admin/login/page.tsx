@@ -22,7 +22,25 @@ function LoginForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tenantSlug, secret }),
     });
-    const data = (await res.json()) as { ok?: boolean; message?: string };
+    const raw = await res.text();
+    let data: { ok?: boolean; message?: string } = {};
+    if (raw.trim()) {
+      try {
+        data = JSON.parse(raw) as { ok?: boolean; message?: string };
+      } catch {
+        setLoading(false);
+        setError(
+          `Resposta inválida do servidor (HTTP ${res.status}). Veja os logs na Vercel ou se DATABASE_URL está correta.`,
+        );
+        return;
+      }
+    } else {
+      setLoading(false);
+      setError(
+        `Servidor retornou HTTP ${res.status} sem corpo. Confira logs na Vercel e variáveis de ambiente.`,
+      );
+      return;
+    }
     setLoading(false);
     if (!res.ok || !data.ok) {
       setError(data.message ?? "Falha ao entrar.");
@@ -45,10 +63,8 @@ function LoginForm() {
           <code className="text-xs">.env</code> (mín. 16 caracteres).
         </p>
         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Abra em <strong>http://localhost:3000</strong> com{" "}
-          <code className="text-[11px]">npm run dev</code>. Slug do tenant:{" "}
-          <strong>demo</strong>. Se alterou o <code className="text-[11px]">.env</code>,
-          reinicie o servidor.
+          Em produção use as variáveis da Vercel (não só o .env local). Slug do
+          tenant precisa existir no banco (ex.: <strong>demo</strong> após seed).
         </p>
 
         {error ? (

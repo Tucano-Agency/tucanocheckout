@@ -35,13 +35,27 @@ export default async function CheckoutOfferPage({ params }: PageProps) {
           <p className="font-semibold text-red-900">
             Erro ao conectar ao banco de dados
           </p>
-          <p className="mt-2 text-sm text-red-800">
-            Confira na Vercel se{" "}
-            <code className="rounded bg-red-100 px-1">DATABASE_URL</code> está
-            correta (senha com caracteres especiais deve estar codificada na
-            URI), se o deploy foi refeito após salvar variáveis e os logs da
-            função na aba Observability.
-          </p>
+          <ul className="mt-4 list-disc pl-5 text-left text-sm text-red-800">
+            <li>
+              Na Vercel, <code className="rounded bg-red-100 px-1">DATABASE_URL</code>{" "}
+              precisa estar marcada para <strong>Production</strong> (deploy{" "}
+              <code className="text-[11px]">…vercel.app</code> de produção não usa só Preview).
+            </li>
+            <li>
+              Supabase pooler: copie a URI <strong>Transaction</strong> do painel (porta{" "}
+              <strong>6543</strong>, usuário <code className="text-[11px]">postgres.PROJECT_REF</code>
+              ).
+            </li>
+            <li>
+              Senha com{" "}
+              <code className="text-[11px]">@ # % &amp;</code> etc. precisa ir{" "}
+              <strong>codificada</strong> na URI.
+            </li>
+            <li>
+              Teste local com o mesmo valor da Vercel:{" "}
+              <code className="text-[11px]">DATABASE_URL=&apos;…&apos; npm run db:test</code>
+            </li>
+          </ul>
         </div>
       </div>
     );
