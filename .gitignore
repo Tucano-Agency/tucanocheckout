@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Env & local
+.env
+.env*.local
+
+# Drizzle
+drizzle/meta/
+
+# IDE / OS
+.DS_Store
+*.log

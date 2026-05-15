@@ -1,0 +1,1 @@
+ALTER TABLE "plans" ADD COLUMN "gateway_plan_refs" jsonb DEFAULT '{}'::jsonb;

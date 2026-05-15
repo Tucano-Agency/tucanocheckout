@@ -1,0 +1,1 @@
+CREATE INDEX "transactions_gateway_charge_id_idx" ON "transactions" USING btree ("gateway_provider","gateway_charge_id");
