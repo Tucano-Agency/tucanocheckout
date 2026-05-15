@@ -28,6 +28,7 @@ function LoginForm() {
       message?: string;
       postgresCode?: string | null;
       hint?: string;
+      detail?: string;
     } = {};
     if (raw.trim()) {
       try {
@@ -52,6 +53,7 @@ function LoginForm() {
       if (data.postgresCode)
         parts.push(`Postgres: ${data.postgresCode}`);
       if (data.hint) parts.push(data.hint);
+      if (data.detail) parts.push(`Detalhe: ${data.detail}`);
       setError(parts.join("\n\n"));
       return;
     }

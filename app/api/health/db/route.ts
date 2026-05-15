@@ -18,13 +18,14 @@ export async function GET() {
     });
   } catch (e) {
     console.error("[health/db]", e);
-    const { postgresCode, hint } = describePostgresFailure(e);
+    const { postgresCode, hint, detail } = describePostgresFailure(e);
 
     return NextResponse.json(
       {
         ok: false,
         postgresCode,
         hint,
+        ...(detail ? { detail } : {}),
       },
       { status: 503 },
     );

@@ -73,14 +73,15 @@ export async function POST(req: Request) {
       tenantRow = rows[0];
     } catch (dbErr) {
       console.error("[admin/session] erro ao consultar tenant:", dbErr);
-      const { postgresCode, hint } = describePostgresFailure(dbErr);
+      const { postgresCode, hint, detail } = describePostgresFailure(dbErr);
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Erro ao conectar ao banco. O slug Production está certo — falha é rede/autenticação ou projeto pausado. Veja `postgresCode` e `hint` abaixo.",
+            "Erro ao conectar ao banco. O slug Production está certo — falha é rede/autenticação ou projeto pausado. Veja `postgresCode`, `hint` e `detail` abaixo.",
           postgresCode,
           hint,
+          ...(detail ? { detail } : {}),
         },
         { status: 503 },
       );
