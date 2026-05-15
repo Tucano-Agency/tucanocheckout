@@ -35,24 +35,29 @@ export function createAdminSessionToken(tenantSlug: string): string {
 export function verifyAdminSessionToken(
   token: string,
 ): SessionPayload | null {
-  const [data, sig] = token.split(".");
-  if (!data || !sig) return null;
-  const expected = sign(data);
   try {
-    const a = Buffer.from(sig);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    const [data, sig] = token.split(".");
+    if (!data || !sig) return null;
+    const expected = sign(data);
+    try {
+      const a = Buffer.from(sig);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    } catch {
+      return null;
+    }
+    try {
+      const payload = JSON.parse(
+        Buffer.from(data, "base64url").toString("utf8"),
+      ) as SessionPayload;
+      if (!payload.tenantSlug || typeof payload.exp !== "number") return null;
+      if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+      return payload;
+    } catch {
+      return null;
+    }
   } catch {
-    return null;
-  }
-  try {
-    const payload = JSON.parse(
-      Buffer.from(data, "base64url").toString("utf8"),
-    ) as SessionPayload;
-    if (!payload.tenantSlug || typeof payload.exp !== "number") return null;
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch {
+    /** sign() falha se TUCANO_ADMIN_SECRET inválido — não quebrar o layout com digest */
     return null;
   }
 }

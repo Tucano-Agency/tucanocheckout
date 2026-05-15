@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         message:
-          "TUCANO_ADMIN_SECRET ausente ou com menos de 16 caracteres no servidor. Confira o .env e reinicie npm run dev.",
+          "TUCANO_ADMIN_SECRET ausente ou com menos de 16 caracteres no servidor. Em produção (Vercel), defina em Settings → Environment Variables e faça redeploy.",
       },
       { status: 503 },
     );

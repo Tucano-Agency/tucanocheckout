@@ -9,18 +9,43 @@ type PageProps = {
 };
 
 export async function generateMetadata({ params }: PageProps) {
-  const { tenantSlug, offerSlug } = await params;
-  const offer = await getPublicOfferBySlugs(db, tenantSlug, offerSlug);
-  if (!offer) return { title: "Checkout — Tucano" };
-  return {
-    title: `${offer.productName} — ${offer.tenantName}`,
-    description: offer.productDescription ?? `Checkout ${offer.productName}`,
-  };
+  try {
+    const { tenantSlug, offerSlug } = await params;
+    const offer = await getPublicOfferBySlugs(db, tenantSlug, offerSlug);
+    if (!offer) return { title: "Checkout — Tucano" };
+    return {
+      title: `${offer.productName} — ${offer.tenantName}`,
+      description: offer.productDescription ?? `Checkout ${offer.productName}`,
+    };
+  } catch {
+    return { title: "Checkout — Tucano" };
+  }
 }
 
 export default async function CheckoutOfferPage({ params }: PageProps) {
   const { tenantSlug, offerSlug } = await params;
-  const offer = await getPublicOfferBySlugs(db, tenantSlug, offerSlug);
+  let offer;
+  try {
+    offer = await getPublicOfferBySlugs(db, tenantSlug, offerSlug);
+  } catch (err) {
+    console.error("[checkout] falha ao carregar oferta:", err);
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-zinc-50 px-6">
+        <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="font-semibold text-red-900">
+            Erro ao conectar ao banco de dados
+          </p>
+          <p className="mt-2 text-sm text-red-800">
+            Confira na Vercel se{" "}
+            <code className="rounded bg-red-100 px-1">DATABASE_URL</code> está
+            correta (senha com caracteres especiais deve estar codificada na
+            URI), se o deploy foi refeito após salvar variáveis e os logs da
+            função na aba Observability.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!offer) notFound();
 
