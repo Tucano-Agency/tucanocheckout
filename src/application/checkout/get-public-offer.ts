@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/infrastructure/db/client";
 import { offers, plans, products, tenants } from "@/infrastructure/db/schema";
+import { withDbRetry } from "@/lib/db-retry";
 
 export type PublicOfferView = {
   readonly offerId: string;
@@ -24,26 +25,28 @@ export async function getPublicOfferBySlugs(
   tenantSlug: string,
   offerSlug: string,
 ): Promise<PublicOfferView | null> {
-  const [row] = await db
-    .select({
-      offer: offers,
-      tenant: tenants,
-      product: products,
-      plan: plans,
-    })
-    .from(offers)
-    .innerJoin(tenants, eq(offers.tenantId, tenants.id))
-    .innerJoin(products, eq(offers.productId, products.id))
-    .leftJoin(plans, eq(offers.planId, plans.id))
-    .where(
-      and(
-        eq(tenants.slug, tenantSlug),
-        eq(offers.publicSlug, offerSlug),
-        eq(offers.isActive, true),
-        eq(products.isActive, true),
-      ),
-    )
-    .limit(1);
+  const [row] = await withDbRetry(() =>
+    db
+      .select({
+        offer: offers,
+        tenant: tenants,
+        product: products,
+        plan: plans,
+      })
+      .from(offers)
+      .innerJoin(tenants, eq(offers.tenantId, tenants.id))
+      .innerJoin(products, eq(offers.productId, products.id))
+      .leftJoin(plans, eq(offers.planId, plans.id))
+      .where(
+        and(
+          eq(tenants.slug, tenantSlug),
+          eq(offers.publicSlug, offerSlug),
+          eq(offers.isActive, true),
+          eq(products.isActive, true),
+        ),
+      )
+      .limit(1),
+  );
 
   if (!row) return null;
 
